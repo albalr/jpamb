@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""A very stupid syntactic analysis, that only checks for assertion errors."""
+"""A simple regex-based syntactic analysis for Java program behavior."""
 
 # Standard Python libraries
 import logging          # Used to print debug information
