@@ -474,6 +474,56 @@ def main():
         )
 
     # ============================================================
+    # OUT OF BOUNDS
+    # ============================================================
+
+    out_of_bounds_q = tree_sitter.Query(
+        JAVA_LANGUAGE,
+        """
+        (array_access) @array_access
+
+        (array_access
+            index: (decimal_integer_literal) @constant_index
+        )
+
+        (array_access
+            index: (identifier) @variable_index
+        )
+        """
+    )
+
+    out_of_bounds_captures = tree_sitter.QueryCursor(
+        out_of_bounds_q
+    ).captures(body)
+
+    constant_index_found = any(
+        capture_name == "constant_index"
+        for capture_name, _ in out_of_bounds_captures.items()
+    )
+
+    variable_index_found = any(
+        capture_name == "variable_index"
+        for capture_name, _ in out_of_bounds_captures.items()
+    )
+
+    array_access_found = any(
+        capture_name == "array_access"
+        for capture_name, _ in out_of_bounds_captures.items()
+    )
+
+    if constant_index_found:
+        print("out of bounds;constant_index")
+
+    elif variable_index_found:
+        print("out of bounds;variable_index")
+
+    elif array_access_found:
+        print("out of bounds;other_array_access")
+
+    else:
+        print("out of bounds;no_array_access")
+
+    # ============================================================
     # OK
     # ============================================================
 
@@ -501,6 +551,7 @@ def main():
             "ok",
             "*",
             "null pointer",
+            "out of bounds",
         ]:
 
             print(f"{q};skip")
