@@ -19,6 +19,7 @@ dependencies = [
 syntactic-treesitter = "syntactic_treesitter:main"
 syntactic-regex = "syntactic_regex:main"
 syntactic-bytecode = "syntactic_bytecode:main"
+syntactic-treesitter-analyzer = "syntactic_treesitter_analyzer:main"
 
 [tool.uv.sources]
 jpamb = { path = "../../", editable = true }
