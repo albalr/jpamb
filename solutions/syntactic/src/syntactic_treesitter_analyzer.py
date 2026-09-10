@@ -30,7 +30,7 @@ def main():
     methodid = jpamb.getmethodid(
         "syntaxer",
         "1.0",
-        "SteGiro",
+        "bests analyzers",
         ["syntactic", "python"],
         for_science=True,
     )
@@ -403,18 +403,6 @@ def main():
     # ============================================================
     # NULL POINTER
     # ============================================================
-    #
-    # IMPORTANT:
-    # This section must be OUTSIDE the previous else.
-    #
-    # Previously it was accidentally indented inside:
-    #
-    #   else:
-    #       null_pointer_q = ...
-    #
-    # which meant null_pointer_q only existed for methods without
-    # while statements.
-    # ============================================================
 
     null_pointer_q = tree_sitter.Query(
         JAVA_LANGUAGE,
@@ -527,17 +515,30 @@ def main():
     # OK
     # ============================================================
 
-    if safe_condition:
+    # Strong syntactic evidence that something can go wrong
+    definite_problem = (
+        assert_false_found
+        or divide_by_zero_found
+        or while_true_found
+        or empty_array_declaration
+    )
 
-        print("ok;yes")
+    # We saw something potentially dangerous, but syntax alone cannot tell us whether it will actually fail
+    possible_problem = (
+        assert_statement_found
+        or maybe_divide_by_zero_found
+        or while_statement_found
+        or array_access_found
+    )
 
-    elif unsafe_condition:
+    if definite_problem:
+        print("ok;definite_problem")
 
-        print("ok;no")
+    elif possible_problem:
+        print("ok;possible_problem")
 
     else:
-
-        print("ok;maybe")
+        print("ok;no_obvious_problem")
 
     # ============================================================
     # QUERIES WE DO NOT ANALYZE YET
