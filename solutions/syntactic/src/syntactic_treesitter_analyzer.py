@@ -340,26 +340,25 @@ def main():
             "divide by zero;not_found"
         )
 
-    # ============================================================
+        # ============================================================
     # NON-TERMINATION / INFINITE LOOP
     # ============================================================
 
     infinite_loop_q = tree_sitter.Query(
         JAVA_LANGUAGE,
         """
-        (block
-            (while_statement
-                condition: (
-                    parenthesized_expression
-                    (expression) @while_true
-                )
+        (while_statement
+            condition: (parenthesized_expression
+                [(update_expression) (assignment_expression)]
             )
+            body: (block) @updating_cond
         )
-        (#eq? @while_true "true")
 
-        (block
-            (while_statement) @while_statement
-        )
+        (while_statement
+            body: (block . "}")
+        ) @empty_body
+
+        (while_statement) @any_while
         """
     )
 
@@ -367,29 +366,42 @@ def main():
         infinite_loop_q
     ).captures(body)
 
-    while_true_found = any(
-        capture_name == "while_true"
+    updating_cond_found = any(
+        capture_name == "updating_cond"
         for capture_name, _ in loop_captures.items()
     )
 
-    while_statement_found = any(
-        capture_name == "while_statement"
+    empty_body_found = any(
+        capture_name == "empty_body"
         for capture_name, _ in loop_captures.items()
     )
 
-    if while_true_found:
+    any_while_found = any(
+        capture_name == "any_while"
+        for capture_name, _ in loop_captures.items()
+    )
+
+    if empty_body_found and not updating_cond_found:
 
         print(
-            "*;while_true_found"
+            "*;empty_body_static_cond"
         )
 
         unsafe_condition = True
         safe_condition = False
 
-    elif while_statement_found:
+    elif empty_body_found:
 
         print(
-            "*;while_statement"
+            "*;empty_body_updating_cond"
+        )
+
+        safe_condition = False
+
+    elif any_while_found:
+
+        print(
+            "*;loop_with_body"
         )
 
         safe_condition = False
@@ -397,7 +409,7 @@ def main():
     else:
 
         print(
-            "*;while_statement_not_found"
+            "*;no_loop"
         )
 
     # ============================================================
@@ -519,7 +531,7 @@ def main():
     definite_problem = (
         assert_false_found
         or divide_by_zero_found
-        or while_true_found
+        or (empty_body_found and not updating_cond_found)
         or empty_array_declaration
     )
 
@@ -527,7 +539,7 @@ def main():
     possible_problem = (
         assert_statement_found
         or maybe_divide_by_zero_found
-        or while_statement_found
+        or any_while_found
         or array_access_found
     )
 
