@@ -353,7 +353,7 @@ def interpret():
     methodid, input, max_steps = jpamb.getcase(
         "dynamic",
         "1.0",
-        "The Rice Theorem Cookers",
+        "best analyzers",
         ["dynamic", "python"],
         for_science=True,
     )
@@ -473,7 +473,7 @@ def analyse():
     methodid = jpamb.getmethodid(
         "dynamic",
         "1.0",
-        "The Rice Theorem Cookers",
+        "best analyzers",
         ["dynamic", "python", "smallcheck", "fuzzing"],
         for_science=True,
     )
