@@ -288,8 +288,21 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                 frame.pc += 1
 
         case jvm.InvokeStatic(method=m):
-            #to be finished (Calls, loops, Strings)
-            return
+            assert (isinstance(m,jvm.AbsMethodID), f"expected method id but got {m}")
+            len_params = len(m.methodid.params)
+
+            print(f"param length: {len_params}", file= sys.stderr)
+            args = []
+            for _ in range(len_params):
+                args.insert(0, frame.stack.pop())
+
+            loc = args + [None] * (15 - len(args))
+            
+            new_pc = jvmc.PC(m, 0)
+            new_locals = jvmc.Locals(loc)
+            new_stack = jvmc.OperandStack([])
+            new_frame = jvmc.Frame(new_locals,new_stack,new_pc)
+            state.frames = state.frames.push(new_frame)
 
         case jvm.Cast(
             from_=jvm.Int(),
@@ -353,7 +366,7 @@ def interpret():
     methodid, input, max_steps = jpamb.getcase(
         "dynamic",
         "1.0",
-        "best analyzers",
+        "bests analyzers",
         ["dynamic", "python"],
         for_science=True,
     )
@@ -400,41 +413,58 @@ def fuzz_input(
     methodid: jvm.AbsMethodID,
     trial: int = 0
 ) -> jpamb.case.Input:
+
     values = []
-    for position, param in enumerate(
-        methodid.extension.params
-    ):
+
+    for position, param in enumerate(methodid.extension.params):
+
         match param:
+
+            # -----------------------------
+            # INT - 
+            # -----------------------------
             case jvm.Int():
                 if trial < 80:
-                    # First explore interesting small/boundary values
                     index = (
                         trial // (
                             len(INTERESTING_INTS) ** position
                         )
                     ) % len(INTERESTING_INTS)
+
                     value = INTERESTING_INTS[index]
+
                 else:
-                    # Then explore the full Java int range
                     value = rand.randint(
                         -(1 << 31),
                         (1 << 31) - 1
                     )
+
                 values.append(
                     jpamb.case.Int(value)
                 )
 
+
+            # -----------------------------
+            # BOOLEAN - 
+            # -----------------------------
             case jvm.Boolean():
+
                 value = bool(
                     (trial // (2 ** position)) % 2
                 )
+
                 values.append(
                     jpamb.case.Boolean(value)
                 )
 
+
+            # -----------------------------
+            # STRING - 
+            # -----------------------------
             case jvm.Object(name=classname) if classname == jvm.ClassName(
                 "java.lang.String"
             ):
+
                 interesting_strings = [
                     "",
                     "hello",
@@ -442,20 +472,102 @@ def fuzz_input(
                     "Hello",
                     "x",
                     "a",
+
+                    "test",
+                    "null",
+                    "hello world",
                 ]
+
                 if trial < 80:
                     value = interesting_strings[
                         trial % len(interesting_strings)
                     ]
+
                 else:
                     length = rand.randint(0, 10)
+
                     value = "".join(
                         rand.choice("abcdefghijklmnopqrstuvwxyz")
                         for _ in range(length)
                     )
+
                 values.append(
                     jpamb.case.String(value)
                 )
+
+
+            # =============================================
+            # NEW: SUPPORT INT ARRAYS
+            # =============================================
+            case jvm.Array(contains=jvm.Int()):
+
+                interesting_arrays = [
+                    [],
+                    [0],
+                    [1],
+                    [-1],
+                    [0, 0],
+                    [1, 2, 3],
+                    [-1, 0, 1],
+                    [42],
+                    [100],
+                ]
+
+                if trial < 80:
+                    array = interesting_arrays[
+                        trial % len(interesting_arrays)
+                    ]
+
+                else:
+                    length = rand.randint(0, 6)
+
+                    array = [
+                        rand.choice(INTERESTING_INTS)
+                        for _ in range(length)
+                    ]
+
+                values.append(
+                    jpamb.case.Array(
+                        jvm.Int(),
+                        array
+                    )
+                )
+
+
+            # =============================================
+            # NEW: SUPPORT CHAR ARRAYS
+            # =============================================
+            case jvm.Array(contains=jvm.Char()):
+
+                interesting_char_arrays = [
+                    "",
+                    "a",
+                    "x",
+                    "hello",
+                    "Hello",
+                    "test",
+                ]
+
+                if trial < 80:
+                    value = interesting_char_arrays[
+                        trial % len(interesting_char_arrays)
+                    ]
+
+                else:
+                    length = rand.randint(0, 8)
+
+                    value = "".join(
+                        rand.choice("abcdefghijklmnopqrstuvwxyz")
+                        for _ in range(length)
+                    )
+
+                values.append(
+                    jpamb.case.Array(
+                        jvm.Char(),
+                        value
+                    )
+                )
+
 
             case _:
                 raise NotImplementedError(
@@ -473,7 +585,7 @@ def analyse():
     methodid = jpamb.getmethodid(
         "dynamic",
         "1.0",
-        "best analyzers",
+        "The Rice Theorem Cookers",
         ["dynamic", "python", "smallcheck", "fuzzing"],
         for_science=True,
     )
