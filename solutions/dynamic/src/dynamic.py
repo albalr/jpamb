@@ -408,12 +408,61 @@ INTERESTING_INTS = [
     -2147483648,
 ]
 
+
+# ============================================================
+# NEW: DICTIONARY ANALYSIS
+# Finds integer and string const used in the method.
+# ============================================================
+def collect_dictionary(bc, methodid):
+
+    int_dictionary = []
+    string_dictionary = []
+
+    method = bc.getmethod(methodid)
+
+    # Look through the bytecode instructions
+    for opr in method.opcodes:
+
+        match opr:
+
+            # Integer const
+            case jvm.Push(type=jvm.Int(), value=value):
+                if value not in int_dictionary:
+                    int_dictionary.append(value)
+
+            # String const
+            case jvm.Push(type=t, value=value) if (
+                isinstance(t, jvm.Object)
+                and t.name == jvm.ClassName("java.lang.String")
+            ):
+                if value not in string_dictionary:
+                    string_dictionary.append(value)
+
+            case _:
+                pass
+
+    return int_dictionary, string_dictionary
+
+
 def fuzz_input(
     rand: random.Random,
     methodid: jvm.AbsMethodID,
-    trial: int = 0
+    trial: int = 0,
+    int_dictionary=None,       
+    string_dictionary=None    
 ) -> jpamb.case.Input:
 
+    if int_dictionary is None:
+        int_dictionary = []
+
+    if string_dictionary is None:
+        string_dictionary = []
+
+    int_values = INTERESTING_INTS.copy()
+
+    for value in int_dictionary:
+        if value not in int_values:
+            int_values.append(value)
     values = []
 
     for position, param in enumerate(methodid.extension.params):
@@ -427,11 +476,11 @@ def fuzz_input(
                 if trial < 80:
                     index = (
                         trial // (
-                            len(INTERESTING_INTS) ** position
+                            len(int_values) ** position
                         )
-                    ) % len(INTERESTING_INTS)
+                    ) % len(int_values)
 
-                    value = INTERESTING_INTS[index]
+                    value = int_values[index]
 
                 else:
                     value = rand.randint(
@@ -476,8 +525,10 @@ def fuzz_input(
                     "test",
                     "null",
                     "hello world",
-                ]
-
+                ]      
+                for string in string_dictionary:
+                    if string not in interesting_strings:
+                        interesting_strings.append(string)
                 if trial < 80:
                     value = interesting_strings[
                         trial % len(interesting_strings)
@@ -522,7 +573,7 @@ def fuzz_input(
                     length = rand.randint(0, 6)
 
                     array = [
-                        rand.choice(INTERESTING_INTS)
+                        rand.choice(int_values)
                         for _ in range(length)
                     ]
 
@@ -586,13 +637,18 @@ def analyse():
         "dynamic",
         "1.0",
         "The Rice Theorem Cookers",
-        ["dynamic", "python", "smallcheck", "fuzzing"],
+        ["dynamic", "python", "smallcheck", "fuzzing","random","dictionary","syntatic",],
         for_science=True,
     )
 
     suite, eff = jpamb.setup()
 
     bc = jpamb.Bytecode(suite, eff, {})
+    
+    int_dictionary, string_dictionary = collect_dictionary(
+      bc,
+      methodid
+    )
 
     # Maximum instructions executed for one input
     MAX_STEPS = 200
@@ -612,7 +668,9 @@ def analyse():
         test_input = fuzz_input(
             rand,
             methodid,
-            trial
+            trial, 
+            int_dictionary,
+            string_dictionary 
         )
 
         state = initial(
