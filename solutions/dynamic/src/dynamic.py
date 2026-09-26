@@ -614,6 +614,10 @@ def analyse():
     # Maximum instructions executed for one input
     MAX_STEPS = 200
 
+    # More steps for SmallCheck because recursive inputs need longer
+    SMALLCHECK_STEPS = 2000 
+     
+
     # Number of different inputs to try
     MAX_TESTS = 100
 
@@ -630,21 +634,21 @@ def analyse():
     if len(methodid.extension.params) == 1 and isinstance(
         methodid.extension.params[0], jvm.Int
     ):
-        for value in gen_int(10):
+        for value in gen_int(8):
 
             test_input = jpamb.case.Input([jpamb.case.Int(value)])
 
-        state = initial(bc, methodid, test_input)
+            state = initial(bc, methodid, test_input)
 
-        for step_number in range(MAX_STEPS):
+            for step_number in range(SMALLCHECK_STEPS):
 
-            pc, state = step(bc, state)
+               pc, state = step(bc, state)
 
-            if isinstance(state, str):
+               if isinstance(state, str):
                 behaviors.add(state)
                 break
 
-            if isinstance(bc[pc], jvm.Goto):
+               if isinstance(bc[pc], jvm.Goto):
                 new_pc = state.frames.peek().pc
 
                 if new_pc.offset == pc.offset:
