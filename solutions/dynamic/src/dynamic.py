@@ -694,6 +694,11 @@ def analyse():
                 if new_pc.offset == pc.offset:
                     behaviors.add("*")
                     break
+        else:
+              
+         if len(methodid.extension.params) == 0:
+
+           behaviors.add("*")           
 
     # Report the behaviors we actually observed
     for query in jpamb.QUERIES:
