@@ -636,7 +636,7 @@ def analyse():
     methodid = jpamb.getmethodid(
         "dynamic",
         "1.0",
-        "The Rice Theorem Cookers",
+        "bests analyzers ",
         ["dynamic", "python", "smallcheck", "fuzzing","random","dictionary","syntatic",],
         for_science=True,
     )
