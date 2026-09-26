@@ -5,6 +5,7 @@ import jpamb
 import jvm
 import jvm.state as jvmc
 
+
 def to_int32(value: int) -> int:
     """
     Convert a Python integer to a signed Java 32-bit integer.
@@ -22,6 +23,7 @@ def java_division(v1: int, v2: int) -> int:
         quotient = -quotient
 
     return to_int32(quotient)
+
 
 def binary(op, v1: int, v2: int) -> int | str:
     match op:
@@ -46,9 +48,7 @@ def binary(op, v1: int, v2: int) -> int | str:
             return to_int32(v1 * v2)
 
         case _:
-            raise NotImplementedError(
-                f"Unhandled binary operation {op!r}"
-            )
+            raise NotImplementedError(f"Unhandled binary operation {op!r}")
 
 
 def compare(op, v1: int, v2: int) -> bool:
@@ -72,9 +72,7 @@ def compare(op, v1: int, v2: int) -> bool:
             return v1 >= v2
 
         case _:
-            raise NotImplementedError(
-                f"Unhandled comparison {op!r}"
-            )
+            raise NotImplementedError(f"Unhandled comparison {op!r}")
 
 
 def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | str]:
@@ -92,17 +90,21 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             frame.pc += 1
 
         case jvm.Ifz(condition=c, target=t):
-            assert isinstance (c,jvm.CmpOpr), f"expected comparison op, but got {type(c)}"
-            assert isinstance (t, int), f"expected int, but got {type(t)}"
+            assert isinstance(
+                c, jvm.CmpOpr
+            ), f"expected comparison op, but got {type(c)}"
+            assert isinstance(t, int), f"expected int, but got {type(t)}"
 
             v1 = frame.stack.pop()
-            assert (isinstance(v1, jvmc.StackInt) or isinstance(v1,jvmc.StackReference)), f"expected int or reference, but got {v1}"
+            assert isinstance(v1, jvmc.StackInt) or isinstance(
+                v1, jvmc.StackReference
+            ), f"expected int or reference, but got {v1}"
             result = compare(c, v1.value, 0)
-            
+
             if isinstance(result, str):
                 output = result
             else:
-                frame.pc = pc%t if result else frame.pc + 1
+                frame.pc = pc % t if result else frame.pc + 1
 
         case jvm.Load(type=t, index=n):
             v = frame.locals[n]
@@ -110,7 +112,7 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             frame.pc += 1
 
         case jvm.ArrayLoad(type=t):
-            index, arr_ref = frame.stack.pop(),frame.stack.pop()
+            index, arr_ref = frame.stack.pop(), frame.stack.pop()
             if arr_ref.value == 0:
                 output = "null pointer"
             else:
@@ -119,10 +121,10 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                     output = "out of bounds"
                 else:
                     arr = state.heap[arr_ref]
-                    
+
                     val = arr.values[index.value]
                     frame.stack.push(jvmc.StackInt(val))
-                    
+
                     frame.pc += 1
 
         case jvm.Incr(index=i, amount=a):
@@ -132,7 +134,7 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             frame.pc += 1
 
         case jvm.Goto(target=t):
-            frame.pc = frame.pc%t
+            frame.pc = frame.pc % t
 
         case jvm.Push(type=t, value=v):
             if isinstance(t, jvm.Int):
@@ -145,17 +147,13 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                 "java.lang.String"
             ):
                 # Create the string in the JVM heap
-                ref = state.heap.new(
-                    jvmc.HeapString(v)
-                )
+                ref = state.heap.new(jvmc.HeapString(v))
                 # Push its reference onto the operand stack
                 frame.stack.push(ref)
             elif isinstance(t, jvm.Reference):
                 frame.stack.push(jvmc.StackReference(v))
             else:
-                raise NotImplementedError(
-                    f"Push type {t} not supported!"
-                )
+                raise NotImplementedError(f"Push type {t} not supported!")
             frame.pc += 1
 
         case jvm.Binary(type=jvm.Int(), operant=op):
@@ -202,14 +200,14 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             # Hack -- if we create an assertion error, we probably also throw it.
             output = "assertion error"
 
-        case jvm.If(condition=c,target=t):
-            val2,val1 = frame.stack.pop(), frame.stack.pop()
+        case jvm.If(condition=c, target=t):
+            val2, val1 = frame.stack.pop(), frame.stack.pop()
             result = compare(c, val1.value, val2.value)
-            
+
             if isinstance(result, str):
                 output = result
             else:
-                frame.pc = pc%t if result else frame.pc + 1
+                frame.pc = pc % t if result else frame.pc + 1
 
         case jvm.NewArray(type=t, dim=d):
             size = frame.stack.pop()
@@ -217,17 +215,14 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                 output = "negative array size"
             else:
                 initial_values = [0] * size.value
-                arr = jvmc.HeapArray(
-                    contains=t,
-                    values=initial_values
-                )
+                arr = jvmc.HeapArray(contains=t, values=initial_values)
                 ref = state.heap.new(arr)
                 frame.stack.push(ref)
                 frame.pc += 1
 
         case jvm.ArrayStore(type=t):
             val, index, ref = frame.stack.pop(), frame.stack.pop(), frame.stack.pop()
-            
+
             if ref.value == 0:
                 output = "null pointer"
             else:
@@ -238,22 +233,22 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                     arr.values[index.value] = val.value
                     frame.pc += 1
 
-        case jvm.Store(type=t,index=i):
+        case jvm.Store(type=t, index=i):
             val = frame.stack.pop()
             frame.locals.locals[i] = val
-            frame.pc+=1
+            frame.pc += 1
 
         case jvm.ArrayLength():
             arr_ref = frame.stack.pop()
-            
+
             if arr_ref.value == 0:
                 output = "null pointer"
             else:
                 arr = state.heap[arr_ref]
-                
+
                 length_value = len(arr.values)
                 frame.stack.push(jvmc.StackInt(length_value))
-                
+
                 frame.pc += 1
 
         case jvm.InvokeVirtual(method=m) if (
@@ -282,44 +277,33 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                         and obj.content == arg.content
                     )
                 # JVM booleans are represented as 1 or 0
-                frame.stack.push(
-                    jvmc.StackInt(1 if result else 0)
-                )
+                frame.stack.push(jvmc.StackInt(1 if result else 0))
                 frame.pc += 1
 
         case jvm.InvokeStatic(method=m):
-            assert (isinstance(m,jvm.AbsMethodID), f"expected method id but got {m}")
+            assert (isinstance(m, jvm.AbsMethodID), f"expected method id but got {m}")
             len_params = len(m.methodid.params)
 
-            print(f"param length: {len_params}", file= sys.stderr)
+            print(f"param length: {len_params}", file=sys.stderr)
             args = []
             for _ in range(len_params):
                 args.insert(0, frame.stack.pop())
 
             loc = args + [None] * (15 - len(args))
-            
+
             new_pc = jvmc.PC(m, 0)
             new_locals = jvmc.Locals(loc)
             new_stack = jvmc.OperandStack([])
-            new_frame = jvmc.Frame(new_locals,new_stack,new_pc)
+            new_frame = jvmc.Frame(new_locals, new_stack, new_pc)
             state.frames = state.frames.push(new_frame)
 
-        case jvm.Cast(
-            from_=jvm.Int(),
-            to_=jvm.Short()
-        ):
+        case jvm.Cast(from_=jvm.Int(), to_=jvm.Short()):
             # Pop the integer from the operand stack
             value = frame.stack.pop()
             # Convert to a signed 16-bit Java short
-            short_value = (
-                (value.value + (1 << 15))
-                % (1 << 16)
-                - (1 << 15)
-            )
+            short_value = (value.value + (1 << 15)) % (1 << 16) - (1 << 15)
             # JVM stores short results as integer stack values
-            frame.stack.push(
-                jvmc.StackInt(short_value)
-            )
+            frame.stack.push(jvmc.StackInt(short_value))
             frame.pc += 1
 
         case a:
@@ -385,16 +369,23 @@ def interpret():
         if isinstance(state, str):
             break
 
+
 INTERESTING_INTS = [
     0,
-    1, -1,
-    2, -2,
-    3, -3,
-    5, -5,
-    10, -10,
-    42, -42,
-    100, -100,
-
+    1,
+    -1,
+    2,
+    -2,
+    3,
+    -3,
+    5,
+    -5,
+    10,
+    -10,
+    42,
+    -42,
+    100,
+    -100,
     # Large constant and neighboring values
     10054202,
     10054203,
@@ -402,7 +393,6 @@ INTERESTING_INTS = [
     -10054202,
     -10054203,
     -10054204,
-
     # Java integer boundaries
     2147483647,
     -2147483648,
@@ -431,10 +421,9 @@ def collect_dictionary(bc, methodid):
                     int_dictionary.append(value)
 
             # String const
-            case jvm.Push(type=t, value=value) if (
-                isinstance(t, jvm.Object)
-                and t.name == jvm.ClassName("java.lang.String")
-            ):
+            case jvm.Push(type=t, value=value) if isinstance(
+                t, jvm.Object
+            ) and t.name == jvm.ClassName("java.lang.String"):
                 if value not in string_dictionary:
                     string_dictionary.append(value)
 
@@ -448,8 +437,8 @@ def fuzz_input(
     rand: random.Random,
     methodid: jvm.AbsMethodID,
     trial: int = 0,
-    int_dictionary=None,       
-    string_dictionary=None    
+    int_dictionary=None,
+    string_dictionary=None,
 ) -> jpamb.case.Input:
 
     if int_dictionary is None:
@@ -463,6 +452,7 @@ def fuzz_input(
     for value in int_dictionary:
         if value not in int_values:
             int_values.append(value)
+
     values = []
 
     for position, param in enumerate(methodid.extension.params):
@@ -470,45 +460,30 @@ def fuzz_input(
         match param:
 
             # -----------------------------
-            # INT - 
+            # INT -
             # -----------------------------
             case jvm.Int():
                 if trial < 80:
-                    index = (
-                        trial // (
-                            len(int_values) ** position
-                        )
-                    ) % len(int_values)
+                    index = (trial // (len(int_values) ** position)) % len(int_values)
 
                     value = int_values[index]
 
                 else:
-                    value = rand.randint(
-                        -(1 << 31),
-                        (1 << 31) - 1
-                    )
+                    value = rand.randint(-(1 << 31), (1 << 31) - 1)
 
-                values.append(
-                    jpamb.case.Int(value)
-                )
-
+                values.append(jpamb.case.Int(value))
 
             # -----------------------------
-            # BOOLEAN - 
+            # BOOLEAN -
             # -----------------------------
             case jvm.Boolean():
 
-                value = bool(
-                    (trial // (2 ** position)) % 2
-                )
+                value = bool((trial // (2**position)) % 2)
 
-                values.append(
-                    jpamb.case.Boolean(value)
-                )
-
+                values.append(jpamb.case.Boolean(value))
 
             # -----------------------------
-            # STRING - 
+            # STRING -
             # -----------------------------
             case jvm.Object(name=classname) if classname == jvm.ClassName(
                 "java.lang.String"
@@ -521,31 +496,24 @@ def fuzz_input(
                     "Hello",
                     "x",
                     "a",
-
                     "test",
                     "null",
                     "hello world",
-                ]      
+                ]
                 for string in string_dictionary:
                     if string not in interesting_strings:
                         interesting_strings.append(string)
                 if trial < 80:
-                    value = interesting_strings[
-                        trial % len(interesting_strings)
-                    ]
+                    value = interesting_strings[trial % len(interesting_strings)]
 
                 else:
                     length = rand.randint(0, 10)
 
                     value = "".join(
-                        rand.choice("abcdefghijklmnopqrstuvwxyz")
-                        for _ in range(length)
+                        rand.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(length)
                     )
 
-                values.append(
-                    jpamb.case.String(value)
-                )
-
+                values.append(jpamb.case.String(value))
 
             # =============================================
             # NEW: SUPPORT INT ARRAYS
@@ -565,25 +533,14 @@ def fuzz_input(
                 ]
 
                 if trial < 80:
-                    array = interesting_arrays[
-                        trial % len(interesting_arrays)
-                    ]
+                    array = interesting_arrays[trial % len(interesting_arrays)]
 
                 else:
                     length = rand.randint(0, 6)
 
-                    array = [
-                        rand.choice(int_values)
-                        for _ in range(length)
-                    ]
+                    array = [rand.choice(int_values) for _ in range(length)]
 
-                values.append(
-                    jpamb.case.Array(
-                        jvm.Int(),
-                        array
-                    )
-                )
-
+                values.append(jpamb.case.Array(jvm.Int(), array))
 
             # =============================================
             # NEW: SUPPORT CHAR ARRAYS
@@ -608,24 +565,23 @@ def fuzz_input(
                     length = rand.randint(0, 8)
 
                     value = "".join(
-                        rand.choice("abcdefghijklmnopqrstuvwxyz")
-                        for _ in range(length)
+                        rand.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(length)
                     )
 
-                values.append(
-                    jpamb.case.Array(
-                        jvm.Char(),
-                        value
-                    )
-                )
-
+                values.append(jpamb.case.Array(jvm.Char(), value))
 
             case _:
-                raise NotImplementedError(
-                    f"Unsupported input type: {param!r}"
-                )
+                raise NotImplementedError(f"Unsupported input type: {param!r}")
 
     return jpamb.case.Input(values)
+
+
+def gen_int(depth):
+    yield 0
+
+    for i in range(depth):
+        yield i + 1
+        yield -(i + 1)
 
 
 def analyse():
@@ -637,18 +593,23 @@ def analyse():
         "dynamic",
         "1.0",
         "bests analyzers ",
-        ["dynamic", "python", "smallcheck", "fuzzing","random","dictionary","syntatic",],
+        [
+            "dynamic",
+            "python",
+            "smallcheck",
+            "fuzzing",
+            "random",
+            "dictionary",
+            "syntatic",
+        ],
         for_science=True,
     )
 
     suite, eff = jpamb.setup()
 
     bc = jpamb.Bytecode(suite, eff, {})
-    
-    int_dictionary, string_dictionary = collect_dictionary(
-      bc,
-      methodid
-    )
+
+    int_dictionary, string_dictionary = collect_dictionary(bc, methodid)
 
     # Maximum instructions executed for one input
     MAX_STEPS = 200
@@ -661,23 +622,43 @@ def analyse():
 
     # Store all observed outcomes
     behaviors = set()
+    # ============================================================
+    # SMALLCHECK
+    # Test small integer values first
+    # ============================================================
+
+    if len(methodid.extension.params) == 1 and isinstance(
+        methodid.extension.params[0], jvm.Int
+    ):
+        for value in gen_int(10):
+
+            test_input = jpamb.case.Input([jpamb.case.Int(value)])
+
+        state = initial(bc, methodid, test_input)
+
+        for step_number in range(MAX_STEPS):
+
+            pc, state = step(bc, state)
+
+            if isinstance(state, str):
+                behaviors.add(state)
+                break
+
+            if isinstance(bc[pc], jvm.Goto):
+                new_pc = state.frames.peek().pc
+
+                if new_pc.offset == pc.offset:
+                    behaviors.add("*")
+                    break
 
     # Generate and test different inputs
     for trial in range(MAX_TESTS):
 
         test_input = fuzz_input(
-            rand,
-            methodid,
-            trial, 
-            int_dictionary,
-            string_dictionary 
+            rand, methodid, trial, int_dictionary, string_dictionary
         )
 
-        state = initial(
-            bc,
-            methodid,
-            test_input
-        )
+        state = initial(bc, methodid, test_input)
 
         # Run the interpreter on this input
         for step_number in range(MAX_STEPS):
@@ -695,10 +676,10 @@ def analyse():
                     behaviors.add("*")
                     break
         else:
-              
-         if len(methodid.extension.params) == 0:
 
-           behaviors.add("*")           
+            if len(methodid.extension.params) == 0:
+
+                behaviors.add("*")
 
     # Report the behaviors we actually observed
     for query in jpamb.QUERIES:
