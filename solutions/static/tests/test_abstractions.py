@@ -148,3 +148,76 @@ def test_interval_arithmetic_add(
     )
 
     assert real <= abstracted
+
+@given(
+    st.sets(st_stack_ints()),
+    st.sets(st_stack_ints()),
+)
+def test_interval_arithmetic_sub(
+    xs: set[jvms.StackInt],
+    ys: set[jvms.StackInt],
+):
+    real = ab.Interval.abstract(
+        jvms.StackInt(x.value - y.value)
+        for x in xs
+        for y in ys
+    )
+
+    abstracted, _errs = ab.Interval.abstract(xs).arithmetic(
+        ab.Interval.abstract(ys),
+        jvm.BinaryOpr.Sub,
+    )
+
+    assert real <= abstracted
+
+@given(
+    st.sets(st_stack_ints()),
+    st.sets(st_stack_ints()),
+)
+def test_interval_arithmetic_mul(
+    xs: set[jvms.StackInt],
+    ys: set[jvms.StackInt],
+):
+    real = ab.Interval.abstract(
+        jvms.StackInt(x.value * y.value)
+        for x in xs
+        for y in ys
+    )
+
+    abstracted, _errs = ab.Interval.abstract(xs).arithmetic(
+        ab.Interval.abstract(ys),
+        jvm.BinaryOpr.Mul,
+    )
+
+    assert real <= abstracted
+
+@given(
+    st.sets(st_stack_ints()),
+    st.sets(st_stack_ints()),
+)
+def test_interval_arithmetic_div(
+    xs: set[jvms.StackInt],
+    ys: set[jvms.StackInt],
+): 
+    def trunc_div(a: int, b: int) -> int:
+        result = abs(a) // abs(b)
+        return result if (a >= 0) == (b >= 0) else -result
+
+    real = ab.Interval.abstract(
+        jvms.StackInt(trunc_div(x.value, y.value))
+        for x in xs
+        for y in ys
+        if y.value != 0
+    )
+
+    abstracted, errors = ab.Interval.abstract(xs).arithmetic(
+        ab.Interval.abstract(ys),
+        jvm.BinaryOpr.Div,
+    )
+
+    assert real <= abstracted
+
+    if xs and any(y.value == 0 for y in ys):
+        assert "division by zero" in errors
+
+    

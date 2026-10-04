@@ -445,7 +445,6 @@ class Interval(Abstraction, Lattice):
     ) -> tuple["Interval", set[str]]:
         match opr:
             case jvm.BinaryOpr.Add:
-                # bottom + anything = bottom
                 if self.min is not None and self.max is not None and self.min > self.max:
                     return (Interval(1, 0), set())
 
@@ -465,6 +464,97 @@ class Interval(Abstraction, Lattice):
                 )
 
                 return (Interval(new_min, new_max), set())
+
+            case jvm.BinaryOpr.Sub:
+                if self.min is not None and self.max is not None and self.min > self.max:
+                    return (Interval(1, 0), set())
+
+                if other.min is not None and other.max is not None and other.min > other.max:
+                    return (Interval(1, 0), set())
+
+                new_min = (
+                    None
+                    if self.min is None or other.max is None
+                    else self.min - other.max
+                )
+
+                new_max = (
+                    None
+                    if self.max is None or other.min is None
+                    else self.max - other.min
+                )
+
+                return (Interval(new_min, new_max), set())
+
+            case jvm.BinaryOpr.Mul:
+                if self.min is not None and self.max is not None and self.min > self.max:
+                    return (Interval(1, 0), set())
+
+                if other.min is not None and other.max is not None and other.min > other.max:
+                    return (Interval(1, 0), set())
+
+                # If one interval is exactly zero
+                if self.min == 0 and self.max == 0:
+                    return (Interval(0, 0), set())
+
+                if other.min == 0 and other.max == 0:
+                    return (Interval(0, 0), set())
+
+                # Conservative result for unbounded intervals
+                if (
+                    self.min is None
+                    or self.max is None
+                    or other.min is None
+                    or other.max is None
+                ):
+                    return (Interval.top(), set())
+
+                values = [
+                    self.min * other.min,
+                    self.min * other.max,
+                    self.max * other.min,
+                    self.max * other.max,
+                ]
+
+                return (Interval(min(values), max(values)), set())
+
+            case jvm.BinaryOpr.Div:
+                if self.min is not None and self.max is not None and self.min > self.max:
+                    return (Interval(1, 0), set())
+
+                if other.min is not None and other.max is not None and other.min > other.max:
+                    return (Interval(1, 0), set())
+
+                errors = set()
+
+                # divisor may contain zero
+                if other.min is None or other.min <= 0:
+                    if other.max is None or other.max >= 0:
+                        errors.add("division by zero")
+
+                # Keep division conservative when bounds are infinite
+                # or the divisor interval contains zero
+                if (
+                    self.min is None
+                    or self.max is None
+                    or other.min is None
+                    or other.max is None
+                    or (other.min <= 0 <= other.max)
+                ):
+                    return (Interval.top(), errors)
+
+                def trunc_div(a: int, b: int) -> int:
+                    result = abs(a) // abs(b)
+                    return result if (a >= 0) == (b >= 0) else -result
+
+                values = [
+                    trunc_div(self.min, other.min),
+                    trunc_div(self.min, other.max),
+                    trunc_div(self.max, other.min),
+                    trunc_div(self.max, other.max),
+                ]
+
+                return (Interval(min(values), max(values)), errors)
 
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
