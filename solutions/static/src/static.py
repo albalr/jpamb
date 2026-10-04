@@ -94,6 +94,10 @@ def manystep(
             va = state.load(i)
             yield (pc + 1, state.push(va))
 
+        case jvm.Cast():
+            [value], after = state.pop(1)
+            yield (pc + 1, after.push(value))
+        
         case jvm.Store(index=i):
             [value], after = state.pop(1)
             yield (pc + 1, after.store(i, value))

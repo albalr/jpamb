@@ -52,6 +52,7 @@ def arithmetic(opr, x, y):
             raise NotImplementedError("TODO")
 
 
+
 @given(
     st.sampled_from([jvm.BinaryOpr.Add]),
     st.sets(st_stack_ints()),
@@ -68,7 +69,69 @@ def test_signset_arithmetic(
     )
     assert real <= abstracted
 
+def test_sign_arithmetic_sub():
+    positive = ab.SignSet.abstract([jvms.StackInt(2)])
+    negative = ab.SignSet.abstract([jvms.StackInt(-3)])
 
+    result, errors = positive.arithmetic(
+        negative,
+        jvm.BinaryOpr.Sub,
+    )
+
+    assert result == ab.SignSet.abstract([jvms.StackInt(1)])
+    assert errors == set()
+
+
+def test_sign_arithmetic_mul():
+    positive = ab.SignSet.abstract([jvms.StackInt(2)])
+    negative = ab.SignSet.abstract([jvms.StackInt(-3)])
+
+    result, errors = positive.arithmetic(
+        negative,
+        jvm.BinaryOpr.Mul,
+    )
+
+    assert result == ab.SignSet.abstract([jvms.StackInt(-1)])
+    assert errors == set()
+
+
+def test_sign_arithmetic_div():
+    positive = ab.SignSet.abstract([jvms.StackInt(4)])
+    negative = ab.SignSet.abstract([jvms.StackInt(-2)])
+
+    result, errors = positive.arithmetic(
+        negative,
+        jvm.BinaryOpr.Div,
+    )
+
+    assert result == ab.SignSet(frozenset({-1, 0}))
+    assert errors == set()
+
+
+def test_sign_arithmetic_div_by_zero():
+    positive = ab.SignSet.abstract([jvms.StackInt(4)])
+    zero = ab.SignSet.abstract([jvms.StackInt(0)])
+
+    result, errors = positive.arithmetic(
+        zero,
+        jvm.BinaryOpr.Div,
+    )
+
+    assert "divide by zero" in errors
+
+
+def test_sign_arithmetic_rem():
+    positive = ab.SignSet.abstract([jvms.StackInt(5)])
+    positive_divisor = ab.SignSet.abstract([jvms.StackInt(2)])
+
+    result, errors = positive.arithmetic(
+        positive_divisor,
+        jvm.BinaryOpr.Rem,
+    )
+
+    assert result == ab.SignSet(frozenset({0, 1}))
+    assert errors == set()
+    
 def compare(opr, x, y):
     match opr:
         case jvm.CmpOpr.Le:
