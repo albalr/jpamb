@@ -103,6 +103,8 @@ def manystep(
         case jvm.New(classname=jvm.ClassName("java.lang.AssertionError")):
             # Hack -- if we create an assertion error, we probably also throw it.
             yield "assertion error"
+        case a:
+            raise NotImplementedError(f"Unsupported operation {a.help()}")
 
 
 def initialstate(
@@ -202,7 +204,7 @@ def analyse():
     methodid = jpamb.getmethodid(
         "static",
         "1.0",
-        "The Rice Theorem Cookers",
+        "best analyzers",
         ["static", "python"],
         for_science=True,
     )

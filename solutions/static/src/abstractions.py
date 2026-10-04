@@ -213,6 +213,7 @@ class SignSet(Abstraction, Lattice):
                     output.update(other.signs)
 
                 return (SignSet(output), set())
+
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
 
@@ -230,9 +231,83 @@ class SignSet(Abstraction, Lattice):
                         if x >= y:
                             cases.add(False)
                 return cases
-            case _:
-                raise NotImplementedError(f"TODO: {opr}")
+            
+            case jvm.CmpOpr.Ne:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x==0 and y==0:
+                            cases.add(False)
+                            continue
+                        if x == y:
+                            cases.add(True)
+                            cases.add(False)
+                            continue
+                        if x != y:
+                            cases.add(True)
+                return cases
 
+            case jvm.CmpOpr.Lt:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x < y)
+                            continue
+                        if x < y:
+                            cases.add(True)
+                        if x > y:
+                            cases.add(False)
+                        if x == y:
+                            cases.add(True)
+                            cases.add(False)
+
+                return cases
+            
+            case jvm.CmpOpr.Gt:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x > y)
+                            continue
+                        if x > y:
+                            cases.add(True)
+                        if x < y:
+                            cases.add(False)
+                        if x == y:
+                            cases.add(True)
+                            cases.add(False)
+
+                return cases
+
+            case jvm.CmpOpr.Ge:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x >= y)
+                            continue
+                        if x >= y:
+                            cases.add(True)
+                        if x <= y:
+                            cases.add(False)
+                return cases
+
+            case jvm.CmpOpr.Eq:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x==0 and y==0:
+                            cases.add(True)
+                            continue
+                        if x == y:
+                            cases.add(True)
+                            cases.add(False)
+                            continue
+                        if x != y:
+                            cases.add(False)
+                return cases
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -252,23 +327,144 @@ class Interval(Abstraction, Lattice):
 
     @classmethod
     def abstract(cls, values: Iterable[jvms.StackValue]) -> Self:
-        raise NotImplementedError("TODO")
+        integers = [value.value for value in values if isinstance(value, jvms.StackInt)]
+
+        if not integers:
+            return cls(1, 0)
+
+        return cls(min(integers), max(integers))
 
     def __contains__(self, value: jvms.StackValue) -> bool:
-        raise NotImplementedError("TODO")
+        if not isinstance(value, jvms.StackInt):
+            return False
+
+        if self.min is not None and value.value < self.min:
+            return False
+
+        if self.max is not None and value.value > self.max:
+            return False
+
+        return True
 
     @classmethod
     def top(cls) -> Self:
-        raise NotImplementedError("TODO")
+        return cls(None, None)
 
     def __or__(self, other: "Interval") -> "Interval":
-        raise NotImplementedError("TODO")
+        # bottom | x = x
+        if self.min is not None and self.max is not None and self.min > self.max:
+            return other
+
+        if other.min is not None and other.max is not None and other.min > other.max:
+            return self
+
+        # Lower bound: choose the smallest
+        if self.min is None or other.min is None:
+            new_min = None
+        else:
+            new_min = min(self.min, other.min)
+
+        # Upper bound: choose the largest
+        if self.max is None or other.max is None:
+            new_max = None
+        else:
+            new_max = max(self.max, other.max)
+
+        return Interval(new_min, new_max)
+
 
     def __and__(self, other: "Interval") -> "Interval":
-        raise NotImplementedError("TODO")
+        # bottom & x = bottom
+        if self.min is not None and self.max is not None and self.min > self.max:
+            return self
+
+        if other.min is not None and other.max is not None and other.min > other.max:
+            return other
+
+        # Lower bound: choose the largest
+        if self.min is None:
+            new_min = other.min
+        elif other.min is None:
+            new_min = self.min
+        else:
+            new_min = max(self.min, other.min)
+
+        # Upper bound: choose the smallest
+        if self.max is None:
+            new_max = other.max
+        elif other.max is None:
+            new_max = self.max
+        else:
+            new_max = min(self.max, other.max)
+
+        # Empty intersection = bottom
+        if new_min is not None and new_max is not None and new_min > new_max:
+            return Interval(1, 0)
+
+        return Interval(new_min, new_max)
+
 
     def __lt__(self, other: "Interval") -> bool:
-        raise NotImplementedError("TODO")
+        # bottom is below every non-bottom interval
+        self_bottom = (
+            self.min is not None
+            and self.max is not None
+            and self.min > self.max
+        )
+
+        other_bottom = (
+            other.min is not None
+            and other.max is not None
+            and other.min > other.max
+        )
+
+        if self_bottom:
+            return not other_bottom
+
+        if other_bottom:
+            return False
+
+        # self <= other means self is contained in other
+        lower_ok = (
+            other.min is None
+            or (self.min is not None and self.min >= other.min)
+        )
+
+        upper_ok = (
+            other.max is None
+            or (self.max is not None and self.max <= other.max)
+        )
+
+        return lower_ok and upper_ok and self != other
 
     def __gt__(self, other: "Interval") -> bool:
-        raise NotImplementedError("TODO")
+        return other < self
+
+    def arithmetic(
+        self, other: "Interval", opr: jvm.BinaryOpr
+    ) -> tuple["Interval", set[str]]:
+        match opr:
+            case jvm.BinaryOpr.Add:
+                # bottom + anything = bottom
+                if self.min is not None and self.max is not None and self.min > self.max:
+                    return (Interval(1, 0), set())
+
+                if other.min is not None and other.max is not None and other.min > other.max:
+                    return (Interval(1, 0), set())
+
+                new_min = (
+                    None
+                    if self.min is None or other.min is None
+                    else self.min + other.min
+                )
+
+                new_max = (
+                    None
+                    if self.max is None or other.max is None
+                    else self.max + other.max
+                )
+
+                return (Interval(new_min, new_max), set())
+
+            case _:
+                raise NotImplementedError(f"TODO: {opr}")
