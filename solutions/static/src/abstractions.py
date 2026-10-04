@@ -213,7 +213,79 @@ class SignSet(Abstraction, Lattice):
                     output.update(other.signs)
 
                 return (SignSet(output), set())
+            case jvm.BinaryOpr.Sub:
+                output = set()
 
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0:
+                            output.add(-y)
+                        elif y == 0:
+                            output.add(x)
+                        elif x == 1 and y == -1:
+                            output.add(1)
+                        elif x == -1 and y == 1:
+                            output.add(-1)
+                        else:
+                            # positive - positive or negative - negative
+                            output.update([-1, 0, 1])
+
+                return (SignSet(frozenset(output)), set())
+
+
+            case jvm.BinaryOpr.Mul:
+                output = set()
+
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            output.add(0)
+                        else:
+                            output.add(x * y)
+
+                return (SignSet(frozenset(output)), set())
+
+
+            case jvm.BinaryOpr.Div:
+                output = set()
+                errors = set()
+
+                for x in self.signs:
+                    for y in other.signs:
+                        if y == 0:
+                            errors.add("divide by zero")
+                            continue
+
+                        if x == 0:
+                            output.add(0)
+                        elif x == y:
+                            # Same sign: integer division may be 0 or positive
+                            output.update([0, 1])
+                        else:
+                            # Different signs: integer division may be 0 or negative
+                            output.update([0, -1])
+
+                return (SignSet(frozenset(output)), errors)
+
+
+            case jvm.BinaryOpr.Rem:
+                output = set()
+                errors = set()
+
+                for x in self.signs:
+                    for y in other.signs:
+                        if y == 0:
+                            errors.add("divide by zero")
+                            continue
+
+                        if x == 0:
+                            output.add(0)
+                        elif x == 1:
+                            output.update([0, 1])
+                        elif x == -1:
+                            output.update([-1, 0])
+
+                return (SignSet(frozenset(output)), errors)
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
 
@@ -530,7 +602,7 @@ class Interval(Abstraction, Lattice):
                 # divisor may contain zero
                 if other.min is None or other.min <= 0:
                     if other.max is None or other.max >= 0:
-                        errors.add("division by zero")
+                        errors.add("divide by zero")
 
                 # Keep division conservative when bounds are infinite
                 # or the divisor interval contains zero

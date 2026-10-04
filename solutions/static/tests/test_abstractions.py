@@ -218,6 +218,6 @@ def test_interval_arithmetic_div(
     assert real <= abstracted
 
     if xs and any(y.value == 0 for y in ys):
-        assert "division by zero" in errors
+        assert "divide by zero" in errors
 
     

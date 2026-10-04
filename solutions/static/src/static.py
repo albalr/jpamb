@@ -77,21 +77,39 @@ def manystep(
                         yield (pc + 1, after)
                     case err:
                         yield err
+        case jvm.If(condition=op, target=target):
+            [v1, v2], after = state.pop(2)
+
+            for res in SignSet.compare(v1, v2, op):
+                match res:
+                    case True:
+                        yield (pc % target, after)
+                    case False:
+                        yield (pc + 1, after)
+        case jvm.Push(type=jvm.Int(), value=value):
+            va = SignSet.abstract([StackInt(value)])
+            yield (pc + 1, state.push(va))
 
         case jvm.Load(index=i):
             va = state.load(i)
             yield (pc + 1, state.push(va))
+
+        case jvm.Store(index=i):
+            [value], after = state.pop(1)
+            yield (pc + 1, after.store(i, value))
 
         case jvm.Goto(target=t):
             yield (pc % t, state)
 
         case jvm.Binary(operant=op):
             [v1, v2], after = state.pop(2)
-            for res in SignSet.arithmetic(v1, v2, op):
-                if isinstance(res, str):
-                    yield res
-                else:
-                    yield (pc + 1, after.push(res))
+
+            result, errors = SignSet.arithmetic(v1, v2, op)
+
+            yield (pc + 1, after.push(result))
+
+            for error in errors:
+                yield error
 
         case jvm.Return(type=None):
             yield "ok"
@@ -177,7 +195,7 @@ def interpret():
     methodid, input, steps = jpamb.getcase(
         "static",
         "1.0",
-        "The Rice Theorem Cookers",
+        "best analyzers",
         ["static", "python"],
         for_science=True,
     )
@@ -188,14 +206,23 @@ def interpret():
 
     x = jpamb.emit_init(ai.states)
 
+    finals_seen = set()
+
     while steps > 0 and ai.worklist:
         pc, final = ai.step()
+
+        finals_seen |= final
+
         for f in final:
             jpamb.emit_step(x, pc, f, depth=1)
             steps -= 1
 
         x = jpamb.emit_step(x, pc, ai.states, depth=1)
         steps -= 1
+
+    # The worklist reached a fixpoint without finding a terminating state
+    if not ai.worklist and not finals_seen:
+        jpamb.emit_step(x, pc, "*", depth=1)
 
 
 def analyse():
@@ -221,6 +248,9 @@ def analyse():
         _pc, finals = ai.step()
         final |= finals
         steps -= 1
+
+    if not ai.worklist and not final:
+        final.add("*")
 
     for f in jpamb.QUERIES:
         if f not in final:
