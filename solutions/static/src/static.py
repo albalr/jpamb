@@ -12,7 +12,7 @@ from jpamb import jvm
 from jvm.state import PC, StackInt
 
 @dataclass(frozen=True)
-class AbstractReference(sexpr.AsSExpr):
+class AbstractReference(sexpr.AsPosSExpr):
     pcs: frozenset[PC] 
 
     def __or__(self, other):
@@ -31,7 +31,7 @@ class AbstractReference(sexpr.AsSExpr):
         return f"Ref({{{', '.join(map(str, self.pcs))}}})"
 
 @dataclass(frozen=True)
-class StackValue(sexpr.AsSExpr):
+class StackValue(sexpr.AsPosSExpr):
     inner_value: SignSet | AbstractReference
 
     def __or__(self, other):
@@ -69,7 +69,7 @@ class StackValue(sexpr.AsSExpr):
         return False
         
 @dataclass(frozen=True)
-class State(sexpr.AsSExpr):
+class State(sexpr.AsPosSExpr):
     locals: tuple[StackValue, ...]
     stack: tuple[StackValue, ...]
     heap: dict[PC, StackValue]  
