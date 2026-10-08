@@ -132,7 +132,7 @@ class Abstraction(ABC):
 
 
 def is_galoi(a: set[jvms.StackValue], b: Abstraction):
-    alpha_a = b.abstract(a)
+    alpha_a = type(b).abstract(a)
 
     for value in a:
         assert value in alpha_a, f"{value} not in {a}"
@@ -147,6 +147,8 @@ type Sign = Literal[-1, 0, 1]
 
 def to_sign(value: jvms.StackValue) -> Sign:
     match value:
+        case int(v):
+            return (v > 0) - (v < 0)
         case jvms.StackInt(v):
             return (v > 0) - (v < 0)
         case a:
@@ -193,55 +195,48 @@ class SignSet(Abstraction, Lattice):
 
         return SignSet(self.signs & other.signs)
 
-    def arithmetic(
-        self, other: "SignSet", opr: jvm.BinaryOpr
-    ) -> tuple["SignSet", set[str]]:
+    def arithmetic(self, other: "SignSet", opr: jvm.BinaryOpr) -> tuple["SignSet", set[str]]:
         match opr:
             case jvm.BinaryOpr.Add:
-                output = set()
-                if 1 in self.signs:
-                    output.add(1)
-                    if -1 in other.signs:
-                        output.update([0, -1])
-
-                if -1 in self.signs:
-                    output.add(-1)
-                    if 1 in other.signs:
-                        output.update([0, 1])
-
-                if 0 in self.signs:
-                    output.update(other.signs)
-
-                return (SignSet(output), set())
-            case jvm.BinaryOpr.Sub:
                 output = set()
 
                 for x in self.signs:
                     for y in other.signs:
                         if x == 0:
-                            output.add(-y)
+                            output.add(y)
                         elif y == 0:
                             output.add(x)
+                        elif x == y:
+                            output.add(x)
+                        else:
+                            output.update([-1, 0, 1])
+
+                return (SignSet(frozenset(output)), set())
+
+            case jvm.BinaryOpr.Sub:
+                output = set()
+
+                for x in self.signs:
+                    for y in other.signs:
+                        if y == 0:
+                            output.add(x)
+                        elif x == 0:
+                            output.add(-y)
                         elif x == 1 and y == -1:
                             output.add(1)
                         elif x == -1 and y == 1:
                             output.add(-1)
                         else:
-                            # positive - positive or negative - negative
                             output.update([-1, 0, 1])
 
                 return (SignSet(frozenset(output)), set())
-
 
             case jvm.BinaryOpr.Mul:
                 output = set()
 
                 for x in self.signs:
                     for y in other.signs:
-                        if x == 0 or y == 0:
-                            output.add(0)
-                        else:
-                            output.add(x * y)
+                        output.add(x * y)
 
                 return (SignSet(frozenset(output)), set())
 
